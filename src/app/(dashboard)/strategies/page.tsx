@@ -1,0 +1,167 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import type { Strategy } from "@/types/strategies";
+
+const demoStrategies: Strategy[] = [
+  {
+    id: "1",
+    name: "Trend Following",
+    type: "TREND_FOLLOWING",
+    enabled: true,
+    description: "EMA 9/21 crossover + ADX > 25 + MACD confirmation. Galaxy Score > 65 filter.",
+    parameters: { emaFast: 9, emaSlow: 21, adxThreshold: 25, stopLoss: 2.5, takeProfit: 5, timeframe: "15m" },
+    winRate: 62.5,
+    totalTrades: 80,
+    profitFactor: 1.95,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "2",
+    name: "Mean Reversion",
+    type: "MEAN_REVERSION",
+    enabled: true,
+    description: "RSI oversold/overbought + Bollinger Band touch. RANGING regime only.",
+    parameters: { rsiPeriod: 14, rsiOversold: 30, rsiOverbought: 70, bbPeriod: 20, bbStdDev: 2, stopLoss: 1.5, takeProfit: 3 },
+    winRate: 68.3,
+    totalTrades: 60,
+    profitFactor: 1.72,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "3",
+    name: "Grid Trading",
+    type: "GRID",
+    enabled: false,
+    description: "ATR-based grid spacing. Galaxy Score 40-60 stability filter. Auto-pause on sentiment spikes.",
+    parameters: { gridLevels: 10, gridSpacing: 0.5, gridAmount: 50, stopLoss: 3 },
+    winRate: 58.7,
+    totalTrades: 47,
+    profitFactor: 1.45,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "4",
+    name: "ML Ensemble",
+    type: "ML_ENSEMBLE",
+    enabled: false,
+    description: "XGBoost on price + social features. Weekly retraining on 90-day rolling window. Phase 3.",
+    parameters: { maxOpenTrades: 2, stopLoss: 2, takeProfit: 4 },
+    winRate: 0,
+    totalTrades: 0,
+    profitFactor: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+];
+
+const typeColors: Record<string, string> = {
+  TREND_FOLLOWING: "success",
+  MEAN_REVERSION: "warning",
+  GRID: "secondary",
+  ML_ENSEMBLE: "default",
+};
+
+export default function StrategiesPage() {
+  const [strategies, setStrategies] = useState<Strategy[]>(demoStrategies);
+
+  useEffect(() => {
+    fetch("/api/strategies")
+      .then((r) => r.json())
+      .then((data) => { if (Array.isArray(data) && data.length > 0) setStrategies(data); })
+      .catch(() => {});
+  }, []);
+
+  const toggleStrategy = async (id: string, enabled: boolean) => {
+    setStrategies((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, enabled } : s))
+    );
+    try {
+      await fetch("/api/strategies", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, enabled }),
+      });
+    } catch {
+      // Revert on error
+      setStrategies((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, enabled: !enabled } : s))
+      );
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-zinc-100">Strategies</h2>
+          <p className="text-zinc-500 mt-1">Manage and monitor trading strategies</p>
+        </div>
+        <Button className="bg-emerald-600 hover:bg-emerald-700">
+          + New Strategy
+        </Button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        {strategies.map((strategy) => (
+          <Card key={strategy.id} className="bg-zinc-900 border-zinc-800">
+            <CardHeader className="flex flex-row items-start justify-between">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-zinc-100">{strategy.name}</CardTitle>
+                  <Badge variant={typeColors[strategy.type] as "success" | "warning" | "secondary" | "default"}>
+                    {strategy.type.replace("_", " ")}
+                  </Badge>
+                </div>
+                <CardDescription className="text-zinc-500">
+                  {strategy.description}
+                </CardDescription>
+              </div>
+              <Switch
+                checked={strategy.enabled}
+                onCheckedChange={(checked) => toggleStrategy(strategy.id, checked)}
+              />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                  <p className="text-xs text-zinc-500">Win Rate</p>
+                  <p className="text-lg font-bold text-zinc-200">
+                    {strategy.winRate > 0 ? `${strategy.winRate.toFixed(1)}%` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Trades</p>
+                  <p className="text-lg font-bold text-zinc-200">{strategy.totalTrades || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-zinc-500">Profit Factor</p>
+                  <p className="text-lg font-bold text-zinc-200">
+                    {strategy.profitFactor > 0 ? strategy.profitFactor.toFixed(2) : "—"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(strategy.parameters).map(([key, value]) => (
+                  <span
+                    key={key}
+                    className="text-xs bg-zinc-800 text-zinc-400 px-2 py-1 rounded"
+                  >
+                    {key}: {String(value)}
+                  </span>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}

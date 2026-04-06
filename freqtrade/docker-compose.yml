@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  freqtrade:
+    image: freqtradeorg/freqtrade:stable
+    container_name: itradeedge-freqtrade
+    restart: unless-stopped
+    volumes:
+      - ./user_data:/freqtrade/user_data
+      - ./config.json:/freqtrade/config.json
+    ports:
+      - "8080:8080"
+    command: >
+      trade
+      --config /freqtrade/config.json
+      --strategy TrendFollowing99Imperial
+    environment:
+      - FREQTRADE__EXCHANGE__KEY=${BINANCE_API_KEY}
+      - FREQTRADE__EXCHANGE__SECRET=${BINANCE_API_SECRET}
+      - FREQTRADE__TELEGRAM__TOKEN=${TELEGRAM_BOT_TOKEN}
+      - FREQTRADE__TELEGRAM__CHAT_ID=${TELEGRAM_CHAT_ID}
+      - FREQTRADE__API_SERVER__PASSWORD=${FREQTRADE_API_PASS}
+      - FREQTRADE__API_SERVER__JWT_SECRET_KEY=${JWT_SECRET}
+    networks:
+      - itradeedge
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: itradeedge-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: itradeedge
+      POSTGRES_USER: itradeedge
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - itradeedge
+
+  redis:
+    image: redis:7-alpine
+    container_name: itradeedge-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}
+    ports:
+      - "6379:6379"
+    networks:
+      - itradeedge
+
+  traefik:
+    image: traefik:v2.11
+    container_name: itradeedge-proxy
+    restart: unless-stopped
+    command:
+      - --api.dashboard=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@itradeedge.com}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+    networks:
+      - itradeedge
+
+volumes:
+  pgdata:
+  letsencrypt:
+
+networks:
+  itradeedge:
+    driver: bridge

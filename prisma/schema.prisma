@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Strategy {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String
+  enabled     Boolean  @default(false)
+  parameters  Json     @default("{}")
+  description String?
+  winRate     Float    @default(0)
+  totalTrades Int      @default(0)
+  profitFactor Float   @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  trades      Trade[]
+}
+
+model Trade {
+  id            String   @id @default(cuid())
+  strategyId    String
+  strategy      Strategy @relation(fields: [strategyId], references: [id])
+  pair          String
+  side          String
+  entryPrice    Float
+  exitPrice     Float?
+  amount        Float
+  profit        Float?
+  profitPercent Float?
+  status        String   @default("OPEN")
+  entryTime     DateTime @default(now())
+  exitTime      DateTime?
+  stopLoss      Float?
+  takeProfit    Float?
+  regime        String?
+  galaxyScore   Float?
+  sentimentBias Float?
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([strategyId])
+  @@index([pair])
+  @@index([status])
+  @@index([entryTime])
+}
+
+model Balance {
+  id        String   @id @default(cuid())
+  currency  String
+  total     Float
+  free      Float
+  used      Float
+  timestamp DateTime @default(now())
+
+  @@index([currency])
+  @@index([timestamp])
+}
+
+model SentimentLog {
+  id              String   @id @default(cuid())
+  symbol          String
+  galaxyScore     Float?
+  altRank         Int?
+  socialVolume    Float?
+  socialDominance Float?
+  sentimentScore  Float?
+  bullishPercent  Float?
+  bearishPercent  Float?
+  timestamp       DateTime @default(now())
+
+  @@index([symbol])
+  @@index([timestamp])
+}
+
+model PerformanceSnapshot {
+  id            String   @id @default(cuid())
+  totalPnl      Float
+  winRate       Float
+  totalTrades   Int
+  openPositions Int
+  equity        Float
+  drawdown      Float
+  sharpeRatio   Float?
+  timestamp     DateTime @default(now())
+
+  @@index([timestamp])
+}
