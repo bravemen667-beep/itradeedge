@@ -14,7 +14,7 @@ class MeanReversion99Imperial(IStrategy):
     INTERFACE_VERSION = 3
 
     timeframe = "15m"
-    can_short = True
+    can_short = False
     minimal_roi = {"0": 0.03, "30": 0.02, "60": 0.015, "120": 0.01}
     stoploss = -0.015
     trailing_stop = True

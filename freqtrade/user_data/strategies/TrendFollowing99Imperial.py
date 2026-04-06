@@ -15,7 +15,7 @@ class TrendFollowing99Imperial(IStrategy):
 
     # Strategy settings
     timeframe = "15m"
-    can_short = True
+    can_short = False
     minimal_roi = {"0": 0.05, "30": 0.03, "60": 0.02, "120": 0.01}
     stoploss = -0.025
     trailing_stop = True

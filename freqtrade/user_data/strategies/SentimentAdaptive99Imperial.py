@@ -20,7 +20,7 @@ class SentimentAdaptive99Imperial(IStrategy):
     INTERFACE_VERSION = 3
 
     timeframe = "15m"
-    can_short = True
+    can_short = False
     minimal_roi = {"0": 0.05, "60": 0.03, "120": 0.02}
     stoploss = -0.025
     trailing_stop = True
