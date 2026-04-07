@@ -12,7 +12,7 @@ export interface Strategy {
   updatedAt: string;
 }
 
-export type StrategyType = "TREND_FOLLOWING" | "MEAN_REVERSION" | "GRID" | "ML_ENSEMBLE";
+export type StrategyType = "TREND_FOLLOWING" | "MEAN_REVERSION" | "GRID" | "ML_ENSEMBLE" | "EMA_SCALPING";
 
 export interface StrategyParameters {
   // Trend Following
@@ -34,6 +34,10 @@ export interface StrategyParameters {
   gridLevels?: number;
   gridSpacing?: number;
   gridAmount?: number;
+
+  // EMA Scalping
+  emaMedium?: number;
+  emaMajor?: number;
 
   // Common
   stopLoss?: number;

@@ -60,6 +60,19 @@ const demoStrategies: Strategy[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
+  {
+    id: "5",
+    name: "EMA Scalping",
+    type: "EMA_SCALPING",
+    enabled: true,
+    description: "1m EMA 9/50/150/200 + RSI < 40 + HH structure + 15m trend filter. 1:2 R:R, trailing SL to breakeven at 1:1.",
+    parameters: { emaFast: 9, emaMedium: 50, emaSlow: 150, emaMajor: 200, rsiOversold: 40, stopLoss: 1, takeProfit: 2, timeframe: "1m" },
+    winRate: 0,
+    totalTrades: 0,
+    profitFactor: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
 ];
 
 const typeColors: Record<string, string> = {
@@ -67,6 +80,7 @@ const typeColors: Record<string, string> = {
   MEAN_REVERSION: "warning",
   GRID: "secondary",
   ML_ENSEMBLE: "default",
+  EMA_SCALPING: "success",
 };
 
 export default function StrategiesPage() {

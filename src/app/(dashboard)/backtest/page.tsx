@@ -58,6 +58,7 @@ export default function BacktestPage() {
                 <option value="MeanReversion99Imperial">Mean Reversion</option>
                 <option value="GridTrading99Imperial">Grid Trading</option>
                 <option value="SentimentAdaptive99Imperial">Sentiment Adaptive</option>
+                <option value="EMAScalping99Imperial">EMA Scalping (1m)</option>
               </select>
             </div>
             <div>
