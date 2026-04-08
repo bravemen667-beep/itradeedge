@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/db";
+
+const FT_BASE = process.env.FREQTRADE_API_URL || "https://srv1436228.hstgr.cloud/ftapi/api/v1";
+const FT_USER = process.env.FREQTRADE_API_USER || "freqtrader";
+const FT_PASS = process.env.FREQTRADE_API_PASS || "";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-  const status = searchParams.get("status");
-  const pair = searchParams.get("pair");
-  const limit = parseInt(searchParams.get("limit") || "50");
-  const offset = parseInt(searchParams.get("offset") || "0");
+  const limit = searchParams.get("limit") || "50";
 
-  const where: Record<string, unknown> = {};
-  if (status) where.status = status;
-  if (pair) where.pair = pair;
+  try {
+    const encoded = Buffer.from(`${FT_USER}:${FT_PASS}`).toString("base64");
+    const res = await fetch(`${FT_BASE}/trades?limit=${limit}`, {
+      headers: { Authorization: `Basic ${encoded}` },
+      next: { revalidate: 15 },
+    });
+    if (!res.ok) throw new Error(`${res.status}`);
+    const data = await res.json();
 
-  const [trades, total] = await Promise.all([
-    prisma.trade.findMany({
-      where,
-      orderBy: { entryTime: "desc" },
-      take: limit,
-      skip: offset,
-      include: { strategy: { select: { name: true, type: true } } },
-    }),
-    prisma.trade.count({ where }),
-  ]);
-
-  return NextResponse.json({ trades, total, limit, offset });
+    return NextResponse.json({
+      trades: data.trades || [],
+      total: data.trades_count || 0,
+      limit: parseInt(limit),
+      offset: 0,
+    });
+  } catch (error) {
+    return NextResponse.json({ trades: [], total: 0, limit: 50, offset: 0, error: String(error) });
+  }
 }
