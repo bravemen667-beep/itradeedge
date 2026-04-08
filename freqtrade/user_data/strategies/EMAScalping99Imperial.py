@@ -95,7 +95,7 @@ class EMAScalping99Imperial(IStrategy):
                 informative = informative[["date", "trend_15m"]].copy()
                 informative.columns = ["date", "trend_15m"]
                 dataframe = dataframe.merge(informative, on="date", how="left")
-                dataframe["trend_15m"].fillna(method="ffill", inplace=True)
+                dataframe["trend_15m"] = dataframe["trend_15m"].ffill()
             else:
                 dataframe["trend_15m"] = 0
         else:
