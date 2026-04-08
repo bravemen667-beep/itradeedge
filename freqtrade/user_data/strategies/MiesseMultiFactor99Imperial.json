@@ -1,0 +1,29 @@
+{
+  "strategy_name": "MiesseMultiFactor99Imperial",
+  "params": {
+    "max_open_trades": {
+      "max_open_trades": 3
+    },
+    "buy": {
+      "score_threshold": 60,
+      "vol_surge_mult": 1.5
+    },
+    "roi": {
+      "0": 0.328,
+      "185": 0.082,
+      "581": 0.057,
+      "1960": 0
+    },
+    "stoploss": {
+      "stoploss": -0.335
+    },
+    "trailing": {
+      "trailing_stop": true,
+      "trailing_stop_positive": 0.251,
+      "trailing_stop_positive_offset": 0.287,
+      "trailing_only_offset_is_reached": false
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2026-04-08 08:08:28.654004+00:00"
+}

@@ -5,6 +5,7 @@ import { KPICards } from "@/components/dashboard/kpi-cards";
 import { EquityCurve } from "@/components/charts/equity-curve";
 import { PositionsTable } from "@/components/dashboard/positions-table";
 import { SignalCard } from "@/components/intelligence/signal-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { KPIData, Position, EquityPoint } from "@/types/trading";
 import type { IntelligenceSignal } from "@/types/intelligence";
 
@@ -114,44 +115,61 @@ export default function DashboardPage() {
   const [equity, setEquity] = useState<EquityPoint[]>(demoEquity);
   const [signals, setSignals] = useState<IntelligenceSignal[]>(demoSignals);
 
+  const [bots, setBots] = useState<
+    { name: string; strategy: string; state: string; timeframe: string; profit: Record<string, number> | null; openTrades: Position[] }[]
+  >([]);
+
   useEffect(() => {
-    // Fetch live data when APIs are connected
     async function fetchData() {
       try {
-        const [perfRes, signalRes] = await Promise.allSettled([
-          fetch("/api/performance"),
-          fetch("/api/intelligence/signals"),
-        ]);
+        // Fetch real Freqtrade data from all 5 bots
+        const liveRes = await fetch("/api/live");
+        if (liveRes.ok) {
+          const live = await liveRes.json();
 
-        if (perfRes.status === "fulfilled" && perfRes.value.ok) {
-          const perf = await perfRes.value.json();
-          if (perf.summary) {
-            setKpi((prev) => ({
-              ...prev,
-              totalPnl: perf.summary.totalProfit,
-              winRate: perf.summary.winRate,
-              totalTrades: perf.summary.totalTrades,
-            }));
+          // Update KPIs from real aggregated data
+          if (live.aggregate) {
+            setKpi({
+              totalPnl: live.aggregate.totalProfit,
+              winRate: live.aggregate.winRate,
+              totalTrades: live.aggregate.totalTrades,
+              openPositions: live.aggregate.openPositions,
+              equity: 10000 + live.aggregate.totalProfit,
+              drawdown: 0,
+              sharpeRatio: 0,
+              dailyPnl: live.aggregate.totalProfit,
+            });
           }
-          if (perf.equityCurve?.length) setEquity(perf.equityCurve);
-        }
 
-        if (signalRes.status === "fulfilled" && signalRes.value.ok) {
-          const data = await signalRes.value.json();
-          if (data.signals?.length) {
-            setSignals(
-              data.signals.map(
-                (s: { intelligence: IntelligenceSignal }) => s.intelligence
-              )
+          // Update positions from real open trades
+          if (live.openTrades?.length) {
+            setPositions(
+              live.openTrades.map((t: Record<string, unknown>, i: number) => ({
+                id: String(i),
+                pair: t.pair as string,
+                side: (t.side as string) || "BUY",
+                entryPrice: t.openRate as number,
+                currentPrice: t.currentRate as number,
+                amount: 0,
+                unrealizedPnl: t.profitAbs as number,
+                unrealizedPnlPercent: t.profitPct as number,
+                strategy: t.strategy as string,
+                entryTime: t.openDate as string,
+              }))
             );
+          } else {
+            setPositions([]);
           }
+
+          // Store bot details
+          if (live.bots) setBots(live.bots);
         }
       } catch {
         // Use demo data on error
       }
     }
     fetchData();
-    const interval = setInterval(fetchData, 30000); // refresh every 30s
+    const interval = setInterval(fetchData, 15000); // refresh every 15s
     return () => clearInterval(interval);
   }, []);
 
@@ -174,6 +192,58 @@ export default function DashboardPage() {
       </div>
 
       <PositionsTable positions={positions} />
+
+      {/* Live Strategy Bots Status */}
+      {bots.length > 0 && (
+        <Card className="bg-zinc-900 border-zinc-800">
+          <CardHeader>
+            <CardTitle className="text-zinc-100">Strategy Bots ({bots.filter(b => b.state === "running").length}/{bots.length} Online)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-zinc-400">
+                    <th className="text-left py-2 px-2">Strategy</th>
+                    <th className="text-left py-2 px-2">State</th>
+                    <th className="text-left py-2 px-2">Timeframe</th>
+                    <th className="text-right py-2 px-2">Trades</th>
+                    <th className="text-right py-2 px-2">Wins</th>
+                    <th className="text-right py-2 px-2">Profit</th>
+                    <th className="text-right py-2 px-2">Best Pair</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bots.map((bot) => (
+                    <tr key={bot.name} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+                      <td className="py-2 px-2 font-medium text-zinc-100">{bot.name}</td>
+                      <td className="py-2 px-2">
+                        <span className={`inline-flex items-center gap-1.5 text-xs ${bot.state === "running" ? "text-emerald-400" : "text-red-400"}`}>
+                          <span className={`h-2 w-2 rounded-full ${bot.state === "running" ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
+                          {bot.state}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 text-zinc-400">{bot.timeframe}</td>
+                      <td className="py-2 px-2 text-right text-zinc-300">
+                        {bot.profit?.closedTradeCount ?? 0}
+                      </td>
+                      <td className="py-2 px-2 text-right text-zinc-300">
+                        {bot.profit?.winningTrades ?? 0}
+                      </td>
+                      <td className={`py-2 px-2 text-right font-medium ${(bot.profit?.closedProfit ?? 0) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        ${(bot.profit?.closedProfit ?? 0).toFixed(2)}
+                      </td>
+                      <td className="py-2 px-2 text-right text-zinc-400">
+                        {bot.profit?.bestPair ?? "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

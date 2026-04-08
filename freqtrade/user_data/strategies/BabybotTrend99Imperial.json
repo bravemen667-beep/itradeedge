@@ -1,0 +1,31 @@
+{
+  "strategy_name": "BabybotTrend99Imperial",
+  "params": {
+    "max_open_trades": {
+      "max_open_trades": 3
+    },
+    "buy": {
+      "adx_threshold": 16,
+      "ema_slope_min": 0.12,
+      "rsi_high": 80,
+      "rsi_low": 40
+    },
+    "roi": {
+      "0": 0.528,
+      "1681": 0.132,
+      "4076": 0.084,
+      "5019": 0
+    },
+    "stoploss": {
+      "stoploss": -0.308
+    },
+    "trailing": {
+      "trailing_stop": true,
+      "trailing_stop_positive": 0.191,
+      "trailing_stop_positive_offset": 0.291,
+      "trailing_only_offset_is_reached": false
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2026-04-08 08:14:03.598987+00:00"
+}
