@@ -62,6 +62,24 @@ const STRATEGIES = [
     parameters: { galaxyMin: 65, rsiEntryLow: 40, rsiEntryHigh: 65, timeframe: "15m" },
     winRate: 0, totalTrades: 0, profitFactor: 0, createdAt: "2026-04-06", updatedAt: "2026-04-06",
   },
+  {
+    id: "11", name: "Sagar Bearish Fade", type: "REVERSAL", enabled: true,
+    description: "Bearish EMA alignment + RSI oversold bounce + VWAP rejection. From 2,152 trades (66.7% WR, 5.85x R). 15m timeframe.",
+    parameters: { rsiMax: 30, adxMin: 22, emaFast: 9, emaMid: 21, emaSlow: 50, timeframe: "15m" },
+    winRate: 66.7, totalTrades: 0, profitFactor: 5.85, createdAt: "2026-04-08", updatedAt: "2026-04-08",
+  },
+  {
+    id: "12", name: "Sagar Breakout", type: "BREAKOUT", enabled: true,
+    description: "Bullish breakout above resistance + volume surge + EMA aligned. 4.40x R-multiple. 15m timeframe.",
+    parameters: { rsiMin: 55, rsiMax: 75, adxMin: 25, volSurge: 1.5, timeframe: "15m" },
+    winRate: 29.2, totalTrades: 0, profitFactor: 4.4, createdAt: "2026-04-08", updatedAt: "2026-04-08",
+  },
+  {
+    id: "13", name: "Sagar Survival Lock", type: "RISK_MGMT", enabled: true,
+    description: "Capital preservation: max 2 positions, 2-loss daily halt, 3-day time stop, trailing at 1.5x R. 15m timeframe.",
+    parameters: { rsiOversold: 35, rsiOverbought: 65, adxThreshold: 22, maxDailyLosses: 2, timeframe: "15m" },
+    winRate: 0, totalTrades: 0, profitFactor: 0, createdAt: "2026-04-08", updatedAt: "2026-04-08",
+  },
 ];
 
 export async function GET() {
