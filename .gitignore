@@ -44,4 +44,13 @@ next-env.d.ts
 
 /src/generated/prisma
 
+# Freqtrade data/cache (large binary files)
+freqtrade/user_data/data/
+freqtrade/user_data/backtest_results/
+freqtrade/user_data/strategies/__pycache__/
+__pycache__/
+*.pyc
+*.feather
+*.zip
+
 .vercel
