@@ -1,4 +1,4 @@
-const FREQTRADE_URL = process.env.FREQTRADE_API_URL || "http://46.202.141.42:8080/api/v1";
+const FREQTRADE_URL = process.env.FREQTRADE_API_URL || "https://srv1436228.hstgr.cloud/ftapi/api/v1";
 const FREQTRADE_USER = process.env.FREQTRADE_API_USER || "freqtrader";
 const FREQTRADE_PASS = process.env.FREQTRADE_API_PASS || "";
 
