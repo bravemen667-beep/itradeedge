@@ -12,6 +12,7 @@ from freqtrade.strategy import IStrategy, IntParameter, DecimalParameter
 from pandas import DataFrame
 import talib.abstract as ta
 import numpy as np
+import pandas as pd
 
 
 class MiesseMultiFactor99Imperial(IStrategy):
@@ -19,12 +20,13 @@ class MiesseMultiFactor99Imperial(IStrategy):
     timeframe = "1h"
     can_short = False
 
-    minimal_roi = {"0": 0.08, "60": 0.04, "120": 0.02, "240": 0.01}
-    stoploss = -0.04
+    # Hyperopt-optimized params (100 epochs, 2021-2025, SharpeHyperOptLoss)
+    minimal_roi = {"0": 0.328, "185": 0.082, "581": 0.057, "1960": 0}
+    stoploss = -0.335
     trailing_stop = True
-    trailing_stop_positive = 0.015
-    trailing_stop_positive_offset = 0.03
-    trailing_only_offset_is_reached = True
+    trailing_stop_positive = 0.251
+    trailing_stop_positive_offset = 0.287
+    trailing_only_offset_is_reached = False
 
     # Hyperoptable
     score_threshold = IntParameter(55, 75, default=65, space="buy")

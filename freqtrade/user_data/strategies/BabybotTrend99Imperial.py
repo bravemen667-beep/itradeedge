@@ -11,6 +11,7 @@ from freqtrade.strategy import IStrategy, IntParameter, DecimalParameter
 from pandas import DataFrame
 import talib.abstract as ta
 import numpy as np
+import pandas as pd
 
 
 class BabybotTrend99Imperial(IStrategy):
@@ -18,12 +19,13 @@ class BabybotTrend99Imperial(IStrategy):
     timeframe = "4h"
     can_short = False
 
-    minimal_roi = {"0": 0.10, "48": 0.05, "120": 0.03, "240": 0.01}
-    stoploss = -0.03
+    # Hyperopt-optimized (100 epochs, 2021-2025, SharpeHyperOptLoss, +237.88%)
+    minimal_roi = {"0": 0.232, "1619": 0.084, "3434": 0.038, "7858": 0}
+    stoploss = -0.263
     trailing_stop = True
-    trailing_stop_positive = 0.01
-    trailing_stop_positive_offset = 0.025
-    trailing_only_offset_is_reached = True
+    trailing_stop_positive = 0.311
+    trailing_stop_positive_offset = 0.319
+    trailing_only_offset_is_reached = False
 
     # Hyperoptable
     adx_threshold = IntParameter(15, 25, default=18, space="buy")
@@ -55,7 +57,7 @@ class BabybotTrend99Imperial(IStrategy):
         dataframe["adx"] = ta.ADX(dataframe, timeperiod=14)
 
         # Volume
-        dataframe["vol_ratio"] = dataframe["volume"] / ta.SMA(dataframe["volume"], timeperiod=20).replace(0, 1)
+        dataframe["vol_ratio"] = dataframe["volume"] / pd.Series(ta.SMA(dataframe["volume"], timeperiod=20)).replace(0, 1)
 
         # OBV (On-Balance Volume)
         dataframe["obv"] = (np.sign(dataframe["close"].diff()) * dataframe["volume"]).cumsum()

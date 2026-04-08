@@ -11,6 +11,7 @@ from freqtrade.strategy import IStrategy, IntParameter, DecimalParameter
 from pandas import DataFrame
 import talib.abstract as ta
 import numpy as np
+import pandas as pd
 
 
 class CapablancaFade99Imperial(IStrategy):
