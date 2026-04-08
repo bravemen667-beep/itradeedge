@@ -2,18 +2,30 @@ const FREQTRADE_URL = "https://srv1436228.hstgr.cloud/ftapi/api/v1";
 const FREQTRADE_USER = "freqtrader";
 const FREQTRADE_PASS = process.env.FREQTRADE_API_PASS || "Imperial99Trade!";
 
-function authHeaders(): HeadersInit {
+let _jwt: { token: string; expires: number } | null = null;
+
+async function getToken(): Promise<string> {
+  if (_jwt && _jwt.expires > Date.now()) return _jwt.token;
   const encoded = Buffer.from(`${FREQTRADE_USER}:${FREQTRADE_PASS}`).toString("base64");
-  return {
-    Authorization: `Basic ${encoded}`,
-    "Content-Type": "application/json",
-  };
+  const res = await fetch(`${FREQTRADE_URL}/token/login`, {
+    method: "POST",
+    headers: { Authorization: `Basic ${encoded}` },
+  });
+  if (!res.ok) throw new Error(`Freqtrade login failed: ${res.status}`);
+  const data = await res.json();
+  _jwt = { token: data.access_token, expires: Date.now() + 14 * 60 * 1000 };
+  return data.access_token;
 }
 
 async function ftFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = await getToken();
   const res = await fetch(`${FREQTRADE_URL}${path}`, {
     ...options,
-    headers: { ...authHeaders(), ...options?.headers },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
   });
   if (!res.ok) {
     throw new Error(`Freqtrade API error: ${res.status} ${res.statusText}`);

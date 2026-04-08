@@ -12,10 +12,25 @@ const ALL_STRATEGIES = [
   { name: "DaveyBreakout", strategy: "DaveyBreakout99Imperial", timeframe: "1h" },
 ];
 
-async function ftFetch<T>(path: string): Promise<T> {
+let cachedToken: { token: string; expires: number } | null = null;
+
+async function getJWT(): Promise<string> {
+  if (cachedToken && cachedToken.expires > Date.now()) return cachedToken.token;
   const encoded = Buffer.from(`${FT_USER}:${FT_PASS}`).toString("base64");
-  const res = await fetch(`${FT_BASE}${path}`, {
+  const res = await fetch(`${FT_BASE}/token/login`, {
+    method: "POST",
     headers: { Authorization: `Basic ${encoded}` },
+  });
+  if (!res.ok) throw new Error(`Login failed: ${res.status}`);
+  const data = await res.json();
+  cachedToken = { token: data.access_token, expires: Date.now() + 14 * 60 * 1000 };
+  return data.access_token;
+}
+
+async function ftFetch<T>(path: string): Promise<T> {
+  const token = await getJWT();
+  const res = await fetch(`${FT_BASE}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
     next: { revalidate: 15 },
   });
   if (!res.ok) throw new Error(`${res.status}`);
