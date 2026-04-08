@@ -41,12 +41,13 @@ export async function GET() {
     const prf = profit.status === "fulfilled" ? profit.value : null;
     const trades = openTrades.status === "fulfilled" ? openTrades.value : [];
     const bal = balance.status === "fulfilled" ? balance.value : null;
+    const anySuccess = cfg || prf || bal || trades.length > 0;
 
     // Build bot list — primary has real data, others show as running
     const bots = ALL_STRATEGIES.map((s) => ({
       name: s.name,
       strategy: s.strategy,
-      state: cfg ? "running" : "offline",
+      state: anySuccess ? "running" : "offline",
       timeframe: s.timeframe,
       profit: s.name === "BabybotTrend" && prf
         ? {
@@ -96,6 +97,14 @@ export async function GET() {
       },
       openTrades: mappedTrades,
       balance: bal,
+      debug: {
+        configOk: config.status === "fulfilled",
+        profitOk: profit.status === "fulfilled",
+        tradesOk: openTrades.status === "fulfilled",
+        balanceOk: balance.status === "fulfilled",
+        configErr: config.status === "rejected" ? String((config as PromiseRejectedResult).reason) : null,
+        ftBase: FT_BASE,
+      },
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
