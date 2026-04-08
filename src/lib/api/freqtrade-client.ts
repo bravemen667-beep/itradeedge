@@ -1,6 +1,6 @@
-const FREQTRADE_URL = process.env.FREQTRADE_API_URL || "https://srv1436228.hstgr.cloud/ftapi/api/v1";
-const FREQTRADE_USER = process.env.FREQTRADE_API_USER || "freqtrader";
-const FREQTRADE_PASS = process.env.FREQTRADE_API_PASS || "";
+const FREQTRADE_URL = "https://srv1436228.hstgr.cloud/ftapi/api/v1";
+const FREQTRADE_USER = "freqtrader";
+const FREQTRADE_PASS = process.env.FREQTRADE_API_PASS || "Imperial99Trade!";
 
 function authHeaders(): HeadersInit {
   const encoded = Buffer.from(`${FREQTRADE_USER}:${FREQTRADE_PASS}`).toString("base64");

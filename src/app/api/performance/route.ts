@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-const FT_BASE = process.env.FREQTRADE_API_URL || "https://srv1436228.hstgr.cloud/ftapi/api/v1";
-const FT_USER = process.env.FREQTRADE_API_USER || "freqtrader";
-const FT_PASS = process.env.FREQTRADE_API_PASS || "";
+const FT_BASE = "https://srv1436228.hstgr.cloud/ftapi/api/v1";
+const FT_USER = "freqtrader";
+const FT_PASS = process.env.FREQTRADE_API_PASS || "Imperial99Trade!";
 
 async function ftFetch(path: string) {
   const encoded = Buffer.from(`${FT_USER}:${FT_PASS}`).toString("base64");

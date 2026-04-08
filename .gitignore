@@ -56,3 +56,4 @@ __pycache__/
 .vercel
 freqtrade/user_data/hyperopt_results/
 *.fthypt
+*.env.vercel
