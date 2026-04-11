@@ -1,21 +1,94 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Settings, Shield, Bell, Zap } from "lucide-react";
 
+interface RiskState {
+  maxDrawdown: number;
+  maxPositionSize: number;
+  maxOpenTrades: number;
+  riskPerTrade: number;
+  maxDailyLoss: number;
+  trailingStop: number;
+}
+
+const defaultRisk: RiskState = {
+  maxDrawdown: 15,
+  maxPositionSize: 10,
+  maxOpenTrades: 3,
+  riskPerTrade: 2,
+  maxDailyLoss: 5,
+  trailingStop: 2.5,
+};
+
+const riskFields: { key: keyof RiskState; label: string; description: string }[] = [
+  { key: "maxDrawdown", label: "Max Drawdown (%)", description: "Halt trading above this drawdown" },
+  { key: "maxPositionSize", label: "Max Position Size (%)", description: "Maximum portfolio % per trade" },
+  { key: "maxOpenTrades", label: "Max Open Trades", description: "Concurrent position limit" },
+  { key: "riskPerTrade", label: "Risk Per Trade (%)", description: "Max risk per individual trade" },
+  { key: "maxDailyLoss", label: "Max Daily Loss (%)", description: "Pause trading after daily loss" },
+  { key: "trailingStop", label: "Trailing Stop (%)", description: "Trailing stop distance" },
+];
+
 export default function SettingsPage() {
   const [paperTrading, setPaperTrading] = useState(true);
   const [notifications, setNotifications] = useState(true);
   const [sentimentFilter, setSentimentFilter] = useState(true);
-  const [saved, setSaved] = useState(false);
+  const [risk, setRisk] = useState<RiskState>(defaultRisk);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveMessage, setSaveMessage] = useState<string>("");
 
-  const saveSettings = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  // Track the saved-flash timeout so we can clear it on unmount and on
+  // back-to-back saves — the previous code leaked timeouts.
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+    };
+  }, []);
+
+  const updateRisk = (key: keyof RiskState, raw: string) => {
+    const parsed = Number(raw);
+    setRisk((prev) => ({
+      ...prev,
+      [key]: Number.isFinite(parsed) ? parsed : prev[key],
+    }));
+  };
+
+  const saveSettings = async () => {
+    setSaveStatus("saving");
+    setSaveMessage("");
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paperTrading,
+          notifications,
+          sentimentFilter,
+          risk,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      setSaveStatus("saved");
+      setSaveMessage(data.message || "Saved");
+    } catch (err) {
+      console.error("[settings] save failed:", err);
+      setSaveStatus("error");
+      setSaveMessage(err instanceof Error ? err.message : "Save failed");
+    }
+    if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+    savedTimeoutRef.current = setTimeout(() => {
+      setSaveStatus("idle");
+      setSaveMessage("");
+    }, 4000);
   };
 
   return (
@@ -72,19 +145,13 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
-            {[
-              { label: "Max Drawdown (%)", defaultValue: "15", description: "Halt trading above this drawdown" },
-              { label: "Max Position Size (%)", defaultValue: "10", description: "Maximum portfolio % per trade" },
-              { label: "Max Open Trades", defaultValue: "3", description: "Concurrent position limit" },
-              { label: "Risk Per Trade (%)", defaultValue: "2", description: "Max risk per individual trade" },
-              { label: "Max Daily Loss (%)", defaultValue: "5", description: "Pause trading after daily loss" },
-              { label: "Trailing Stop (%)", defaultValue: "2.5", description: "Trailing stop distance" },
-            ].map((field) => (
-              <div key={field.label}>
+            {riskFields.map((field) => (
+              <div key={field.key}>
                 <label className="block text-sm text-zinc-400 mb-1">{field.label}</label>
                 <input
                   type="number"
-                  defaultValue={field.defaultValue}
+                  value={risk[field.key]}
+                  onChange={(e) => updateRisk(field.key, e.target.value)}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 text-sm"
                 />
                 <p className="text-xs text-zinc-600 mt-1">{field.description}</p>
@@ -144,9 +211,24 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      <Button onClick={saveSettings} className="bg-emerald-600 hover:bg-emerald-700">
-        {saved ? "Saved!" : "Save Settings"}
-      </Button>
+      <div className="flex items-center gap-4">
+        <Button
+          onClick={saveSettings}
+          disabled={saveStatus === "saving"}
+          className="bg-emerald-600 hover:bg-emerald-700"
+        >
+          {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved!" : "Save Settings"}
+        </Button>
+        {saveMessage && (
+          <span
+            className={`text-xs ${
+              saveStatus === "error" ? "text-red-400" : "text-zinc-500"
+            }`}
+          >
+            {saveMessage}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
