@@ -8,6 +8,12 @@ const LUNARCRUSH_BASE = "https://lunarcrush.com/api4/public";
 const API_KEY = process.env.LUNARCRUSH_API_KEY || "";
 
 async function lcFetch<T>(path: string): Promise<T> {
+  // Fail fast and loud instead of letting the API return an opaque 401.
+  if (!API_KEY) {
+    throw new Error(
+      "LUNARCRUSH_API_KEY is not set — set it in env to enable LunarCrush intelligence"
+    );
+  }
   const res = await fetch(`${LUNARCRUSH_BASE}${path}`, {
     headers: {
       Authorization: `Bearer ${API_KEY}`,

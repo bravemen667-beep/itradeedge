@@ -29,21 +29,27 @@ export async function GET() {
     const bal = balance.status === "fulfilled" ? balance.value : null;
     const anySuccess = cfg || prf || bal;
 
-    const bots = ALL_STRATEGIES.map((s) => ({
-      name: s.name,
-      strategy: s.strategy,
-      state: anySuccess ? "running" : "offline",
-      timeframe: s.timeframe,
-      profit: s.name === "BabybotTrend" && prf
-        ? {
-            closedProfit: prf.profit_closed_coin,
-            closedTradeCount: prf.closed_trade_count,
-            winningTrades: prf.winning_trades,
-            losingTrades: prf.losing_trades,
-            bestPair: prf.best_pair,
-          }
-        : { closedProfit: 0, closedTradeCount: 0, winningTrades: 0, losingTrades: 0, bestPair: "—" },
-    }));
+    // Map profit to whichever bot's strategy matches the live freqtrade config,
+    // not a hardcoded "BabybotTrend" name. Falls back to no profit if no config.
+    const activeStrategy = cfg?.strategy ?? null;
+    const bots = ALL_STRATEGIES.map((s) => {
+      const isActive = activeStrategy !== null && s.strategy === activeStrategy;
+      return {
+        name: s.name,
+        strategy: s.strategy,
+        state: anySuccess ? "running" : "offline",
+        timeframe: s.timeframe,
+        profit: isActive && prf
+          ? {
+              closedProfit: prf.profit_closed_coin,
+              closedTradeCount: prf.closed_trade_count,
+              winningTrades: prf.winning_trades,
+              losingTrades: prf.losing_trades,
+              bestPair: prf.best_pair,
+            }
+          : { closedProfit: 0, closedTradeCount: 0, winningTrades: 0, losingTrades: 0, bestPair: "—" },
+      };
+    });
 
     const totalProfit = prf?.profit_closed_coin || 0;
     const totalTrades = prf?.closed_trade_count || 0;
@@ -58,8 +64,10 @@ export async function GET() {
         losingTrades: prf?.losing_trades || 0,
         winRate,
         openPositions: trades.length,
-        botsOnline: anySuccess ? 5 : 0,
-        botsTotal: 5,
+        // Derived from the bots array — no magic number; future-proof if
+        // ALL_STRATEGIES grows or shrinks.
+        botsOnline: bots.filter((b) => b.state === "running").length,
+        botsTotal: bots.length,
         equity: (bal?.total || 10000) + totalProfit,
         exchange: cfg?.exchange || "binance",
         dryRun: cfg?.dry_run ?? true,

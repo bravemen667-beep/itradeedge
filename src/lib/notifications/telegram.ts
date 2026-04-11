@@ -2,8 +2,20 @@ const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
+// Warn once on first send if creds are missing — operators were previously
+// flying blind because sendMessage silently returned false on every call.
+let warnedNotConfigured = false;
+
 async function sendMessage(text: string, parseMode = "HTML"): Promise<boolean> {
-  if (!BOT_TOKEN || !CHAT_ID) return false;
+  if (!BOT_TOKEN || !CHAT_ID) {
+    if (!warnedNotConfigured) {
+      console.warn(
+        "[telegram] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is not set — notifications disabled"
+      );
+      warnedNotConfigured = true;
+    }
+    return false;
+  }
 
   try {
     const res = await fetch(`${TELEGRAM_API}/sendMessage`, {
