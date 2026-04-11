@@ -18,8 +18,15 @@ export function calculateMACD(
   const fastEMA = calculateEMA(closes, fastPeriod);
   const slowEMA = calculateEMA(closes, slowPeriod);
 
-  // Align arrays
+  // Align arrays. Under normal use fastEMA is longer than slowEMA (smaller
+  // period -> more samples), so offset >= 0. If a caller inverts the periods
+  // or feeds malformed data, offset could go negative — slice(-n) would then
+  // silently return the LAST n elements instead of erroring, producing
+  // mathematically wrong MACD output. Bail out cleanly instead.
   const offset = fastEMA.length - slowEMA.length;
+  if (offset < 0) {
+    return { macd: [], signal: [], histogram: [] };
+  }
   const alignedFast = fastEMA.slice(offset);
 
   const macdLine: number[] = [];

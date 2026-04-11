@@ -21,8 +21,14 @@ export function calculateRSI(closes: number[], period = 14): number[] {
   avgLoss /= period;
 
   const result: number[] = [];
-  const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
-  result.push(100 - 100 / (1 + rs));
+  // When avgLoss is 0 the canonical RSI value is exactly 100 (RS = +Infinity),
+  // not 100 - 100/101 = ~99.01 which is what we'd get from rs = 100.
+  if (avgLoss === 0) {
+    result.push(100);
+  } else {
+    const rs = avgGain / avgLoss;
+    result.push(100 - 100 / (1 + rs));
+  }
 
   // Smoothed
   for (let i = period; i < changes.length; i++) {
@@ -32,8 +38,12 @@ export function calculateRSI(closes: number[], period = 14): number[] {
     avgGain = (avgGain * (period - 1) + gain) / period;
     avgLoss = (avgLoss * (period - 1) + loss) / period;
 
-    const smoothedRS = avgLoss === 0 ? 100 : avgGain / avgLoss;
-    result.push(100 - 100 / (1 + smoothedRS));
+    if (avgLoss === 0) {
+      result.push(100);
+    } else {
+      const smoothedRS = avgGain / avgLoss;
+      result.push(100 - 100 / (1 + smoothedRS));
+    }
   }
 
   return result;

@@ -92,6 +92,16 @@ export class RiskManager {
     peakEquity: number,
     dailyPnl: number
   ): { halt: boolean; reason?: string } {
+    // Guard: peakEquity of 0 means no equity history yet — nothing to halt on.
+    // Without this, drawdown becomes NaN and the >= comparison silently
+    // returns false, disabling the drawdown halt entirely.
+    if (peakEquity <= 0) {
+      if (dailyPnl <= -this.config.maxDailyLoss) {
+        return { halt: true, reason: `Max daily loss exceeded: ${dailyPnl.toFixed(1)}%` };
+      }
+      return { halt: false };
+    }
+
     const drawdown = ((peakEquity - currentEquity) / peakEquity) * 100;
 
     if (drawdown >= this.config.maxDrawdown) {
