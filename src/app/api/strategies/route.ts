@@ -87,11 +87,39 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
-  return NextResponse.json({ ...body, id: String(STRATEGIES.length + 1) }, { status: 201 });
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  if (!body || typeof body !== "object" || !("name" in body) || !("type" in body)) {
+    return NextResponse.json({ error: "Missing required fields: name, type" }, { status: 400 });
+  }
+  const { name, type, ...rest } = body as Record<string, unknown>;
+  if (typeof name !== "string" || typeof type !== "string") {
+    return NextResponse.json({ error: "name and type must be strings" }, { status: 400 });
+  }
+  return NextResponse.json({ name, type, ...rest, id: String(STRATEGIES.length + 1) }, { status: 201 });
 }
 
 export async function PATCH(req: NextRequest) {
-  const body = await req.json();
-  return NextResponse.json(body);
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  if (!body || typeof body !== "object" || !("id" in body)) {
+    return NextResponse.json({ error: "Missing required field: id" }, { status: 400 });
+  }
+  const { id } = body as Record<string, unknown>;
+  if (typeof id !== "string") {
+    return NextResponse.json({ error: "id must be a string" }, { status: 400 });
+  }
+  const strategy = STRATEGIES.find((s) => s.id === id);
+  if (!strategy) {
+    return NextResponse.json({ error: "Strategy not found" }, { status: 404 });
+  }
+  return NextResponse.json({ ...strategy, ...(body as Record<string, unknown>) });
 }

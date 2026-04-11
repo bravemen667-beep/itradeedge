@@ -1,6 +1,6 @@
-const FREQTRADE_URL = "https://srv1436228.hstgr.cloud/ftapi/api/v1";
-const FREQTRADE_USER = "freqtrader";
-const FREQTRADE_PASS = process.env.FREQTRADE_API_PASS || "Imperial99Trade!";
+const FREQTRADE_URL = process.env.FREQTRADE_API_URL || "https://srv1436228.hstgr.cloud/ftapi/api/v1";
+const FREQTRADE_USER = process.env.FREQTRADE_API_USER || "freqtrader";
+const FREQTRADE_PASS = process.env.FREQTRADE_API_PASS || "";
 
 let _jwt: { token: string; expires: number } | null = null;
 
@@ -163,6 +163,7 @@ export interface FreqtradeProfit {
   avg_duration: string;
   best_pair: string;
   best_rate: number;
+  profit_factor: number;
 }
 
 export interface FreqtradeBalance {
