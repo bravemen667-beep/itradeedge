@@ -19,6 +19,15 @@ function isAllowedPath(ftPath: string): boolean {
   if (/^\/strategy\/[\w-]+$/.test(basePath)) return true;
   // Allow /trades with query params
   if (basePath === "/trades") return true;
+  // Per-bot fan-out: /bot/<name>/<allowed-suffix> routes to that specific
+  // freqtrade container via the proxy. The suffix is itself checked against
+  // the allowlist so this can't be used to reach arbitrary endpoints.
+  const botMatch = basePath.match(/^\/bot\/[a-z]+(\/.+)?$/);
+  if (botMatch) {
+    const suffix = botMatch[1] || "/";
+    if (ALLOWED_PATHS.has(suffix)) return true;
+    if (/^\/strategy\/[\w-]+$/.test(suffix)) return true;
+  }
   return false;
 }
 
