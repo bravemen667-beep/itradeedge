@@ -1,0 +1,68 @@
+# gitleaks configuration for itradeedge
+# Inherits the upstream default ruleset (broad coverage of API keys, JWTs,
+# private keys, AWS, etc.) and layers itradeedge-specific rules + an
+# allowlist for documentation files that legitimately reference historical
+# credentials by name.
+#
+# Run locally:
+#   gitleaks detect --source . --redact
+# Run only against a diff:
+#   gitleaks protect --staged --source . --redact
+
+title = "itradeedge gitleaks config"
+
+# Inherit the default ruleset.
+[extend]
+useDefault = true
+
+# itradeedge-specific rules — these prevent the exact credentials that
+# leaked once before from sneaking back in.
+[[rules]]
+id = "itradeedge-historical-freqtrade-pw"
+description = "Historical hardcoded Freqtrade password — must never reappear"
+regex = '''Imperial99Trade!?'''
+tags = ["itradeedge", "credential", "historical"]
+
+[[rules]]
+id = "itradeedge-historical-proxy-key"
+description = "Historical hardcoded Freqtrade proxy API key — must never reappear"
+regex = '''itradeedge-2026-proxy'''
+tags = ["itradeedge", "credential", "historical"]
+
+[[rules]]
+id = "itradeedge-historical-db-pw"
+description = "Historical Postgres password from .env — must never reappear in source"
+regex = '''Imperial99DB2026!?'''
+tags = ["itradeedge", "credential", "historical"]
+
+[[rules]]
+id = "itradeedge-historical-redis-pw"
+description = "Historical Redis password from .env — must never reappear in source"
+regex = '''Imperial99Redis2026!?'''
+tags = ["itradeedge", "credential", "historical"]
+
+# Project-wide allowlist. Default rules + itradeedge rules respect this.
+[allowlist]
+description = "Allow placeholders in env templates and audit-report references"
+paths = [
+  # Env templates contain literal placeholder strings that look like values.
+  '''(^|/)\.env\.example$''',
+  # Audit reports reference historical credentials by name as documentation.
+  '''(^|/)FINAL_REPORT.*\.md$''',
+  '''(^|/)\.artifacts/audit-report.*\.md$''',
+  # Lockfile noise.
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)yarn\.lock$''',
+  # Generated prisma client.
+  '''(^|/)src/generated/''',
+]
+
+regexes = [
+  # Common placeholder forms in templates.
+  '''your_[a-z_]+_here''',
+  '''your_[a-z_]+''',
+  '''<[a-z_-]+>''',
+  '''changeme''',
+  '''replace_me''',
+  '''example_[a-z_]+''',
+]
