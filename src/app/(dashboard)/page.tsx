@@ -112,8 +112,8 @@ const demoSignals: IntelligenceSignal[] = [
 export default function DashboardPage() {
   const [kpi, setKpi] = useState<KPIData>(demoKPI);
   const [positions, setPositions] = useState<Position[]>(demoPositions);
-  const [equity, setEquity] = useState<EquityPoint[]>(demoEquity);
-  const [signals, setSignals] = useState<IntelligenceSignal[]>(demoSignals);
+  const [equity] = useState<EquityPoint[]>(demoEquity);
+  const [signals] = useState<IntelligenceSignal[]>(demoSignals);
 
   const [bots, setBots] = useState<
     { name: string; strategy: string; state: string; timeframe: string; profit: Record<string, number> | null; openTrades: Position[] }[]

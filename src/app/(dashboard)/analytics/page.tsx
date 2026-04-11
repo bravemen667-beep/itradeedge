@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { PnlChart } from "@/components/charts/pnl-chart";
 import { EquityCurve } from "@/components/charts/equity-curve";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCurrency, formatPercent } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
 interface PerformanceData {
   summary: {

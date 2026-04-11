@@ -10,31 +10,55 @@ import type { IntelligenceSignal } from "@/types/intelligence";
 
 const defaultSymbols = ["BTC", "ETH", "SOL", "BNB"];
 
+async function fetchSignalsData(): Promise<{ signals: IntelligenceSignal[]; timestamp: string } | null> {
+  try {
+    const res = await fetch("/api/intelligence/signals");
+    const data = await res.json();
+    if (data.signals) {
+      return {
+        signals: data.signals.map((s: { intelligence: IntelligenceSignal }) => s.intelligence),
+        timestamp: new Date().toLocaleTimeString(),
+      };
+    }
+  } catch {
+    // Use empty state
+  }
+  return null;
+}
+
 export default function IntelligencePage() {
   const [signals, setSignals] = useState<IntelligenceSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string>("");
-
-  const fetchSignals = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/intelligence/signals");
-      const data = await res.json();
-      if (data.signals) {
-        setSignals(data.signals.map((s: { intelligence: IntelligenceSignal }) => s.intelligence));
-        setLastUpdated(new Date().toLocaleTimeString());
-      }
-    } catch {
-      // Use empty state
-    }
-    setLoading(false);
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetchSignals();
-    const interval = setInterval(fetchSignals, 300000); // 5 min
-    return () => clearInterval(interval);
-  }, []);
+    let cancelled = false;
+    const controller = new AbortController();
+    fetchSignalsData().then((result) => {
+      if (cancelled) return;
+      if (result) {
+        setSignals(result.signals);
+        setLastUpdated(result.timestamp);
+      }
+      setLoading(false);
+    });
+    const interval = setInterval(() => {
+      fetchSignalsData().then((result) => {
+        if (cancelled) return;
+        if (result) {
+          setSignals(result.signals);
+          setLastUpdated(result.timestamp);
+        }
+      });
+    }, 300000); // 5 min
+    return () => { cancelled = true; controller.abort(); clearInterval(interval); };
+  }, [refreshKey]);
+
+  const handleRefresh = () => {
+    setLoading(true);
+    setRefreshKey((k) => k + 1);
+  };
 
   const tradeable = signals.filter(
     (s) => s.galaxyScore >= 65 && s.confidence >= 0.6 && s.sentimentBias > 0.2
@@ -56,7 +80,7 @@ export default function IntelligencePage() {
           {lastUpdated && (
             <span className="text-xs text-zinc-500">Updated: {lastUpdated}</span>
           )}
-          <Button variant="outline" size="sm" onClick={fetchSignals} disabled={loading}>
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
