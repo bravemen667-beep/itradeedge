@@ -7,8 +7,11 @@ export async function GET(req: NextRequest) {
 
   try {
     if (symbol) {
+      // Wrap the single-symbol response in an envelope so callers always
+      // destructure a known shape (`{ signal }` here vs `{ signals }` for
+      // the multi case) instead of branching on the top-level type.
       const signal = await dataPipeline.getAggregatedSignal(symbol);
-      return NextResponse.json(signal);
+      return NextResponse.json({ signal, timestamp: new Date().toISOString() });
     }
 
     const signals = await dataPipeline.getAllSignals();

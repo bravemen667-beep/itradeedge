@@ -75,7 +75,9 @@ const demoStrategies: Strategy[] = [
   },
 ];
 
-const typeColors: Record<string, string> = {
+type BadgeVariant = "success" | "warning" | "secondary" | "default" | "destructive";
+
+const typeColors: Record<string, BadgeVariant> = {
   TREND_FOLLOWING: "success",
   MEAN_REVERSION: "warning",
   GRID: "secondary",
@@ -92,10 +94,25 @@ export default function StrategiesPage() {
   const [strategies, setStrategies] = useState<Strategy[]>(demoStrategies);
 
   useEffect(() => {
-    fetch("/api/strategies")
-      .then((r) => r.json())
-      .then((data) => { if (Array.isArray(data) && data.length > 0) setStrategies(data); })
-      .catch(() => {});
+    let cancelled = false;
+    const controller = new AbortController();
+    fetch("/api/strategies", { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        if (cancelled) return;
+        if (Array.isArray(data) && data.length > 0) setStrategies(data);
+      })
+      .catch((err) => {
+        if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
+        console.error("[strategies] failed to load /api/strategies:", err);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, []);
 
   const toggleStrategy = async (id: string, enabled: boolean) => {
@@ -103,12 +120,14 @@ export default function StrategiesPage() {
       prev.map((s) => (s.id === id ? { ...s, enabled } : s))
     );
     try {
-      await fetch("/api/strategies", {
+      const res = await fetch("/api/strategies", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, enabled }),
       });
-    } catch {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error("[strategies] failed to toggle strategy:", err);
       // Revert on error
       setStrategies((prev) =>
         prev.map((s) => (s.id === id ? { ...s, enabled: !enabled } : s))
@@ -135,7 +154,7 @@ export default function StrategiesPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-zinc-100">{strategy.name}</CardTitle>
-                  <Badge variant={typeColors[strategy.type] as "success" | "warning" | "secondary" | "default"}>
+                  <Badge variant={typeColors[strategy.type] ?? "default"}>
                     {strategy.type.replace("_", " ")}
                   </Badge>
                 </div>

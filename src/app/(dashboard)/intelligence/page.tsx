@@ -10,18 +10,26 @@ import type { IntelligenceSignal } from "@/types/intelligence";
 
 const defaultSymbols = ["BTC", "ETH", "SOL", "BNB"];
 
-async function fetchSignalsData(): Promise<{ signals: IntelligenceSignal[]; timestamp: string } | null> {
+async function fetchSignalsData(
+  signal?: AbortSignal
+): Promise<{ signals: IntelligenceSignal[]; timestamp: string } | null> {
   try {
-    const res = await fetch("/api/intelligence/signals");
+    const res = await fetch("/api/intelligence/signals", { signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (data.signals) {
+    if (Array.isArray(data?.signals)) {
+      // Defensive: each upstream entry is supposed to have `.intelligence`
+      // but we filter rather than crash if the contract drifts.
       return {
-        signals: data.signals.map((s: { intelligence: IntelligenceSignal }) => s.intelligence),
+        signals: (data.signals as Array<{ intelligence?: IntelligenceSignal }>)
+          .filter((s): s is { intelligence: IntelligenceSignal } => !!s?.intelligence)
+          .map((s) => s.intelligence),
         timestamp: new Date().toLocaleTimeString(),
       };
     }
-  } catch {
-    // Use empty state
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") return null;
+    console.error("[intelligence] failed to load /api/intelligence/signals:", err);
   }
   return null;
 }
@@ -35,7 +43,7 @@ export default function IntelligencePage() {
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    fetchSignalsData().then((result) => {
+    fetchSignalsData(controller.signal).then((result) => {
       if (cancelled) return;
       if (result) {
         setSignals(result.signals);
@@ -44,7 +52,7 @@ export default function IntelligencePage() {
       setLoading(false);
     });
     const interval = setInterval(() => {
-      fetchSignalsData().then((result) => {
+      fetchSignalsData(controller.signal).then((result) => {
         if (cancelled) return;
         if (result) {
           setSignals(result.signals);

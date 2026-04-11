@@ -21,9 +21,15 @@ export default function BacktestPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ strategy, timeframe, timerange }),
       });
+      // Without this check a 500/502 from the proxy was being parsed as if it
+      // were valid backtest output and rendered to the user as garbage JSON.
+      if (!res.ok) {
+        throw new Error(`Backtest request failed: ${res.status} ${res.statusText}`);
+      }
       const data = await res.json();
       setResult(data);
-    } catch {
+    } catch (err) {
+      console.error("[backtest] run failed:", err);
       setResult({ error: "Backtest failed — check Freqtrade connection" });
     }
     setRunning(false);

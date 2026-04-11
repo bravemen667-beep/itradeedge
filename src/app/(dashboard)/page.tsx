@@ -109,53 +109,80 @@ const demoSignals: IntelligenceSignal[] = [
   },
 ];
 
+// Defensive coercion helpers — the /api/live response is typed as
+// Record<string, unknown> at the boundary, so we validate each field rather
+// than blindly casting and risking NaN/undefined leaking into the UI.
+const asNum = (v: unknown, d = 0): number =>
+  typeof v === "number" && Number.isFinite(v) ? v : d;
+const asStr = (v: unknown, d = ""): string => (typeof v === "string" ? v : d);
+const asSide = (v: unknown): "BUY" | "SELL" | "SHORT" | "LONG" => {
+  const s = asStr(v, "BUY").toUpperCase();
+  return s === "SELL" || s === "SHORT" || s === "LONG" ? s : "BUY";
+};
+
 export default function DashboardPage() {
   const [kpi, setKpi] = useState<KPIData>(demoKPI);
   const [positions, setPositions] = useState<Position[]>(demoPositions);
   const [equity] = useState<EquityPoint[]>(demoEquity);
   const [signals] = useState<IntelligenceSignal[]>(demoSignals);
+  const [loading, setLoading] = useState(true);
 
   const [bots, setBots] = useState<
     { name: string; strategy: string; state: string; timeframe: string; profit: Record<string, number> | null; openTrades: Position[] }[]
   >([]);
 
   useEffect(() => {
+    // Race-safe fetch loop — abort in-flight request on unmount, ignore late
+    // responses if a newer interval tick beat them, prevent setState after
+    // unmount which logs a noisy React warning.
+    const controller = new AbortController();
+    let cancelled = false;
+
     async function fetchData() {
       try {
         // Fetch real Freqtrade data from all 5 bots
-        const liveRes = await fetch("/api/live");
+        const liveRes = await fetch("/api/live", { signal: controller.signal });
+        if (cancelled) return;
         if (liveRes.ok) {
           const live = await liveRes.json();
+          if (cancelled) return;
 
           // Update KPIs from real aggregated data
           if (live.aggregate) {
             setKpi({
-              totalPnl: live.aggregate.totalProfit,
-              winRate: live.aggregate.winRate,
-              totalTrades: live.aggregate.totalTrades,
-              openPositions: live.aggregate.openPositions,
-              equity: 10000 + live.aggregate.totalProfit,
+              totalPnl: asNum(live.aggregate.totalProfit),
+              winRate: asNum(live.aggregate.winRate),
+              totalTrades: asNum(live.aggregate.totalTrades),
+              openPositions: asNum(live.aggregate.openPositions),
+              equity: 10000 + asNum(live.aggregate.totalProfit),
               drawdown: 0,
               sharpeRatio: 0,
-              dailyPnl: live.aggregate.totalProfit,
+              dailyPnl: asNum(live.aggregate.totalProfit),
             });
           }
 
-          // Update positions from real open trades
+          // Update positions from real open trades. Use a stable composite id
+          // (pair + entry timestamp) so React reconciles by trade identity
+          // rather than by array index — the previous String(i) keys caused
+          // visual flicker / lost row state when trades were added or closed.
           if (live.openTrades?.length) {
             setPositions(
-              live.openTrades.map((t: Record<string, unknown>, i: number) => ({
-                id: String(i),
-                pair: t.pair as string,
-                side: (t.side as string) || "BUY",
-                entryPrice: t.openRate as number,
-                currentPrice: t.currentRate as number,
-                amount: 0,
-                unrealizedPnl: t.profitAbs as number,
-                unrealizedPnlPercent: t.profitPct as number,
-                strategy: t.strategy as string,
-                entryTime: t.openDate as string,
-              }))
+              live.openTrades.map((t: Record<string, unknown>) => {
+                const pair = asStr(t.pair);
+                const entryTime = asStr(t.openDate);
+                return {
+                  id: `${pair}-${entryTime}`,
+                  pair,
+                  side: asSide(t.side),
+                  entryPrice: asNum(t.openRate),
+                  currentPrice: asNum(t.currentRate),
+                  amount: 0,
+                  unrealizedPnl: asNum(t.profitAbs),
+                  unrealizedPnlPercent: asNum(t.profitPct),
+                  strategy: asStr(t.strategy),
+                  entryTime,
+                };
+              })
             );
           } else {
             setPositions([]);
@@ -164,20 +191,37 @@ export default function DashboardPage() {
           // Store bot details
           if (live.bots) setBots(live.bots);
         }
-      } catch {
-        // Use demo data on error
+      } catch (err) {
+        if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
+        // Keep showing whatever was last loaded; surface the error in console
+        // so operators can see why live data stopped flowing.
+        console.error("[dashboard] failed to fetch /api/live:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
     fetchData();
     const interval = setInterval(fetchData, 15000); // refresh every 15s
-    return () => clearInterval(interval);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearInterval(interval);
+    };
   }, []);
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-3xl font-bold text-zinc-100">Dashboard</h2>
-        <p className="text-zinc-500 mt-1">Real-time trading overview</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold text-zinc-100">Dashboard</h2>
+          <p className="text-zinc-500 mt-1">Real-time trading overview</p>
+        </div>
+        {loading && (
+          <span className="text-xs text-zinc-500 inline-flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse" />
+            Loading live data…
+          </span>
+        )}
       </div>
 
       <KPICards data={kpi} />
@@ -215,7 +259,7 @@ export default function DashboardPage() {
                 </thead>
                 <tbody>
                   {bots.map((bot) => (
-                    <tr key={bot.name} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+                    <tr key={bot.strategy} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
                       <td className="py-2 px-2 font-medium text-zinc-100">{bot.name}</td>
                       <td className="py-2 px-2">
                         <span className={`inline-flex items-center gap-1.5 text-xs ${bot.state === "running" ? "text-emerald-400" : "text-red-400"}`}>

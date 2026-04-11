@@ -66,10 +66,25 @@ export default function AnalyticsPage() {
   const [data, setData] = useState<PerformanceData>(demoData);
 
   useEffect(() => {
-    fetch("/api/performance?days=30")
-      .then((r) => r.json())
-      .then((d) => { if (d.summary) setData(d); })
-      .catch(() => {});
+    let cancelled = false;
+    const controller = new AbortController();
+    fetch("/api/performance?days=30", { signal: controller.signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((d) => {
+        if (cancelled) return;
+        if (d.summary) setData(d);
+      })
+      .catch((err) => {
+        if (cancelled || (err instanceof DOMException && err.name === "AbortError")) return;
+        console.error("[analytics] failed to load /api/performance:", err);
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, []);
 
   return (
