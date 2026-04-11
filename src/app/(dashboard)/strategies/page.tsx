@@ -81,6 +81,11 @@ const typeColors: Record<string, string> = {
   GRID: "secondary",
   ML_ENSEMBLE: "default",
   EMA_SCALPING: "success",
+  BREAKOUT: "success",
+  REVERSAL: "warning",
+  RISK_MGMT: "destructive",
+  SENTIMENT: "default",
+  MULTI_FACTOR: "secondary",
 };
 
 export default function StrategiesPage() {

@@ -98,7 +98,7 @@ export class RiskManager {
       return { halt: true, reason: `Max drawdown exceeded: ${drawdown.toFixed(1)}%` };
     }
 
-    if (Math.abs(dailyPnl) >= this.config.maxDailyLoss) {
+    if (dailyPnl <= -this.config.maxDailyLoss) {
       return { halt: true, reason: `Max daily loss exceeded: ${dailyPnl.toFixed(1)}%` };
     }
 

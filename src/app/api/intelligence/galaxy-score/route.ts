@@ -21,8 +21,8 @@ export async function GET(req: NextRequest) {
     );
 
     const data = results
-      .filter((r) => r.status === "fulfilled")
-      .map((r) => (r as PromiseFulfilledResult<{ symbol: string; galaxyScore: number; altRank: number; socialDominance: number; price: number; priceChange24h: number }>).value);
+      .filter((r): r is PromiseFulfilledResult<{ symbol: string; galaxyScore: number; altRank: number; socialDominance: number; price: number; priceChange24h: number }> => r.status === "fulfilled")
+      .map((r) => r.value);
 
     return NextResponse.json({ data, timestamp: new Date().toISOString() });
   } catch (error) {

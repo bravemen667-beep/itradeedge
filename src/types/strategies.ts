@@ -12,7 +12,7 @@ export interface Strategy {
   updatedAt: string;
 }
 
-export type StrategyType = "TREND_FOLLOWING" | "MEAN_REVERSION" | "GRID" | "ML_ENSEMBLE" | "EMA_SCALPING";
+export type StrategyType = "TREND_FOLLOWING" | "MEAN_REVERSION" | "GRID" | "ML_ENSEMBLE" | "EMA_SCALPING" | "BREAKOUT" | "REVERSAL" | "RISK_MGMT" | "SENTIMENT" | "MULTI_FACTOR";
 
 export interface StrategyParameters {
   // Trend Following
