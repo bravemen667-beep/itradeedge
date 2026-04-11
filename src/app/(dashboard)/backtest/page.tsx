@@ -1,38 +1,110 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FlaskConical, Play, Loader2 } from "lucide-react";
 
+// Freqtrade webserver-mode /api/v1/backtest is async: POST starts the run,
+// GET polls status until { status: "ended" } and returns { backtest_result }.
+// This page handles that whole lifecycle: start -> poll every 2s -> stop on
+// terminal state (ended/error) or on a 5-minute hard timeout.
+
+interface BacktestStatus {
+  status: string;
+  running: boolean;
+  status_msg?: string;
+  step?: string;
+  progress?: number;
+  trade_count?: number | null;
+  backtest_result?: unknown;
+}
+
+const POLL_INTERVAL_MS = 2000;
+const POLL_MAX_ATTEMPTS = 150; // 150 * 2s = 5 minutes
+
 export default function BacktestPage() {
-  const [strategy, setStrategy] = useState("TrendFollowing99Imperial");
-  const [timeframe, setTimeframe] = useState("15m");
-  const [timerange, setTimerange] = useState("20260101-20260401");
+  const [strategy, setStrategy] = useState("BabybotTrend99Imperial");
+  const [timeframe, setTimeframe] = useState("4h");
+  const [timerange, setTimerange] = useState("20260101-20260201");
   const [running, setRunning] = useState(false);
+  const [status, setStatus] = useState<string>("");
+  const [progress, setProgress] = useState<number>(0);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
+
+  // Track the in-flight poll loop so unmount can stop it cleanly.
+  const cancelledRef = useRef(false);
+  useEffect(() => {
+    return () => {
+      cancelledRef.current = true;
+    };
+  }, []);
+
+  const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
   const runBacktest = async () => {
     setRunning(true);
     setResult(null);
+    setStatus("Starting backtest…");
+    setProgress(0);
+    cancelledRef.current = false;
+
     try {
-      const res = await fetch("/api/freqtrade/backtest", {
+      // 1. Kick off the backtest. freqtrade webserver mode requires the full
+      //    parameter set even when most values come from config.json — the
+      //    body validator is strict.
+      const startRes = await fetch("/api/freqtrade/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ strategy, timeframe, timerange }),
+        body: JSON.stringify({
+          strategy,
+          timeframe,
+          timerange,
+          enable_protections: false,
+          max_open_trades: 3,
+          stake_amount: "unlimited",
+          starting_capital: 10000,
+          dry_run_wallet: 10000,
+        }),
       });
-      // Without this check a 500/502 from the proxy was being parsed as if it
-      // were valid backtest output and rendered to the user as garbage JSON.
-      if (!res.ok) {
-        throw new Error(`Backtest request failed: ${res.status} ${res.statusText}`);
+      if (!startRes.ok) {
+        const errBody = await startRes.text().catch(() => "");
+        throw new Error(`Start failed: HTTP ${startRes.status} ${errBody.slice(0, 200)}`);
       }
-      const data = await res.json();
-      setResult(data);
+
+      // 2. Poll until terminal state or timeout.
+      for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
+        if (cancelledRef.current) return;
+        await sleep(POLL_INTERVAL_MS);
+        if (cancelledRef.current) return;
+
+        const pollRes = await fetch("/api/freqtrade/backtest");
+        if (!pollRes.ok) {
+          throw new Error(`Poll failed: HTTP ${pollRes.status}`);
+        }
+        const data = (await pollRes.json()) as BacktestStatus;
+
+        const pct = Math.round((data.progress ?? 0) * 100);
+        setProgress(pct);
+        setStatus(`${data.status_msg || data.status} — step: ${data.step || "…"} (${pct}%)`);
+
+        if (data.status === "ended") {
+          setResult((data.backtest_result as Record<string, unknown>) ?? data);
+          setStatus("Backtest complete");
+          return;
+        }
+        if (data.status === "error") {
+          throw new Error(data.status_msg || "Backtest reported error state");
+        }
+      }
+      throw new Error(`Backtest timed out after ${(POLL_MAX_ATTEMPTS * POLL_INTERVAL_MS) / 1000}s`);
     } catch (err) {
-      console.error("[backtest] run failed:", err);
-      setResult({ error: "Backtest failed — check Freqtrade connection" });
+      console.error("[backtest] failed:", err);
+      setResult({ error: err instanceof Error ? err.message : "Backtest failed" });
+      setStatus("Failed");
+    } finally {
+      setRunning(false);
     }
-    setRunning(false);
   };
 
   return (
@@ -43,7 +115,7 @@ export default function BacktestPage() {
           Backtesting
         </h2>
         <p className="text-zinc-500 mt-1">
-          Test strategies against historical data via Freqtrade
+          Test strategies against historical data via Freqtrade webserver
         </p>
       </div>
 
@@ -58,13 +130,14 @@ export default function BacktestPage() {
               <select
                 value={strategy}
                 onChange={(e) => setStrategy(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 text-sm"
+                disabled={running}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 text-sm disabled:opacity-50"
               >
+                <option value="BabybotTrend99Imperial">Babybot Trend</option>
                 <option value="TrendFollowing99Imperial">Trend Following</option>
-                <option value="MeanReversion99Imperial">Mean Reversion</option>
-                <option value="GridTrading99Imperial">Grid Trading</option>
-                <option value="SentimentAdaptive99Imperial">Sentiment Adaptive</option>
+                <option value="MiesseMultiFactor99Imperial">Miesse Multi-Factor</option>
                 <option value="EMAScalping99Imperial">EMA Scalping (1m)</option>
+                <option value="DaveyBreakout99Imperial">Davey Breakout</option>
               </select>
             </div>
             <div>
@@ -72,8 +145,10 @@ export default function BacktestPage() {
               <select
                 value={timeframe}
                 onChange={(e) => setTimeframe(e.target.value)}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 text-sm"
+                disabled={running}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 text-sm disabled:opacity-50"
               >
+                <option value="1m">1 minute</option>
                 <option value="5m">5 minutes</option>
                 <option value="15m">15 minutes</option>
                 <option value="1h">1 hour</option>
@@ -87,8 +162,9 @@ export default function BacktestPage() {
                 type="text"
                 value={timerange}
                 onChange={(e) => setTimerange(e.target.value)}
+                disabled={running}
                 placeholder="20260101-20260401"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 text-sm"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-zinc-200 text-sm disabled:opacity-50"
               />
             </div>
           </div>
@@ -103,8 +179,22 @@ export default function BacktestPage() {
             ) : (
               <Play className="h-4 w-4 mr-2" />
             )}
-            {running ? "Running Backtest..." : "Run Backtest"}
+            {running ? "Running…" : "Run Backtest"}
           </Button>
+
+          {(running || status) && (
+            <div className="space-y-2">
+              <div className="text-xs text-zinc-400">{status}</div>
+              {running && (
+                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-cyan-500 transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -114,7 +204,7 @@ export default function BacktestPage() {
             <CardTitle className="text-zinc-100">Backtest Results</CardTitle>
           </CardHeader>
           <CardContent>
-            <pre className="bg-zinc-950 p-4 rounded-lg text-sm text-zinc-300 overflow-auto max-h-96">
+            <pre className="bg-zinc-950 p-4 rounded-lg text-xs text-zinc-300 overflow-auto max-h-[600px]">
               {JSON.stringify(result, null, 2)}
             </pre>
           </CardContent>
@@ -127,11 +217,11 @@ export default function BacktestPage() {
           <CardTitle className="text-zinc-100">How Backtesting Works</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-zinc-400 space-y-2">
-          <p>Backtesting runs through Freqtrade&apos;s battle-tested engine on the VPS.</p>
-          <p>1. Select a strategy and time range</p>
-          <p>2. Freqtrade replays historical data and simulates trades</p>
-          <p>3. Results include win rate, profit factor, drawdown, and trade-by-trade breakdown</p>
-          <p>4. Use Freqtrade Hyperopt to automatically optimize parameters</p>
+          <p>Backtesting runs against a dedicated Freqtrade webserver instance on the VPS, separate from the live trading bots.</p>
+          <p>1. Choose strategy, timeframe, and date range</p>
+          <p>2. The webserver replays historical OHLCV data and simulates trades</p>
+          <p>3. Results return when finished — usually within a few seconds for short ranges</p>
+          <p>4. Long ranges or fresh data downloads can take longer; the page polls for up to 5 minutes</p>
         </CardContent>
       </Card>
     </div>
