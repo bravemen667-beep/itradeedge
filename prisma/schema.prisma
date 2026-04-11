@@ -25,7 +25,10 @@ model Strategy {
 model Trade {
   id            String   @id @default(cuid())
   strategyId    String
-  strategy      Strategy @relation(fields: [strategyId], references: [id])
+  // onDelete: Cascade — deleting a Strategy now cleans up its Trades.
+  // Previously the default Restrict would block strategy deletion any time
+  // there were historical trades, leading to orphaned-strategy workarounds.
+  strategy      Strategy @relation(fields: [strategyId], references: [id], onDelete: Cascade)
   pair          String
   side          String
   entryPrice    Float
@@ -49,6 +52,10 @@ model Trade {
   @@index([pair])
   @@index([status])
   @@index([entryTime])
+  // Compound index for the most common dashboard query: "open trades for
+  // this strategy ordered by entry time". Without it Postgres falls back to
+  // a single-column scan + filter, which gets slow as trade history grows.
+  @@index([strategyId, status, entryTime])
 }
 
 model Balance {
