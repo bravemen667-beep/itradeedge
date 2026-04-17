@@ -27,6 +27,15 @@ class BabybotTrend99Imperial(IStrategy):
     trailing_stop_positive_offset = 0.319
     trailing_only_offset_is_reached = False
 
+    # Exit purely via trailing_stop + minimal_roi + stoploss. The prior indicator
+    # exit (close<EMA50 or RSI>82 or ema50_slope<-0.1) was responsible for 17/20
+    # losing trades in 2026-03-01→2026-04-07 / 1h backtest (15% winrate on
+    # exit_signal vs 100% on ROI/force_exit). Let winners run; let trailing_stop
+    # lock gains; let stoploss cap disasters.
+    use_exit_signal = False
+    exit_profit_only = False
+    ignore_roi_if_entry_signal = False
+
     # Hyperoptable
     adx_threshold = IntParameter(15, 25, default=18, space="buy")
     rsi_low = IntParameter(35, 50, default=40, space="buy")
@@ -83,12 +92,6 @@ class BabybotTrend99Imperial(IStrategy):
         return dataframe
 
     def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        dataframe.loc[
-            (
-                (dataframe["close"] < dataframe["ema50"])
-                | (dataframe["rsi14"] > 82)
-                | (dataframe["ema50_slope"] < -0.1)
-            ),
-            "exit_long",
-        ] = 1
+        # Intentionally empty. Exits handled by trailing_stop + minimal_roi
+        # + stoploss (see use_exit_signal = False above).
         return dataframe
